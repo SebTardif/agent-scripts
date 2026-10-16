@@ -95,3 +95,4 @@ jobs:
         run: |
           node -e "import('youtube-transcript-plus').then(m => { if (typeof m.YoutubeTranscript?.fetchTranscript !== 'function') process.exit(1); })"
           ./scripts/vtd.js transcript --help
+          node --test scripts/vtd.test.mjs
