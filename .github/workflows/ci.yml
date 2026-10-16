@@ -73,6 +73,9 @@ jobs:
       - name: Test maintainer orchestrator worker boundary
         run: scripts/test-maintainer-orchestrator-policy
 
+      - name: Test relay doctor without a gateway token file
+        run: python3 skills/openclaw-relay/scripts/test_doctor_token.py
+
       - name: Test image output safety (offline, synthetic)
         run: |
           python3 -m venv "$RUNNER_TEMP/image-tests"
