@@ -3,7 +3,7 @@
 // against fixtures/expected/. Dependency-free; each fixture dir holds ONE file so output
 // order never depends on readdir order.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -45,6 +45,21 @@ for (const [name, flags] of CHECKS) {
     }
   }
 }
+const hostileDir = join(workDir, 'hostile');
+mkdirSync(hostileDir);
+writeFileSync(join(hostileDir, 'Hostile.swift'), `${'  @.'.repeat(40)}\npublic func kept() {}\n`);
+const hostileOut = join(workDir, 'hostile.txt');
+const hostileStarted = Date.now();
+execFileSync(process.execPath, [...process.execArgv, mapTs, hostileDir, '--out', hostileOut], {
+  stdio: ['ignore', 'ignore', 'inherit'],
+});
+const hostileMs = Date.now() - hostileStarted;
+const hostileMap = readFileSync(hostileOut, 'utf8');
+if (hostileMs > 1000 || !hostileMap.includes('kept')) {
+  failed++;
+  console.error(`FAIL hostile swift line (${hostileMs}ms)`);
+}
+
 rmSync(workDir, { recursive: true, force: true });
 
 if (failed > 0) {
