@@ -88,6 +88,71 @@ describe('browser navigation failures', () => {
     expect(calls).toEqual(['goto']);
   });
 
+  test('a network-idle timeout after the document loads still extracts the article', async () => {
+    const calls: string[] = [];
+    const page = {
+      async goto(_url: string, options: { waitUntil: string }) {
+        calls.push(options.waitUntil);
+      },
+      async waitForNetworkIdle() {
+        calls.push('idle');
+        const error = new Error('Waiting for network idle timed out');
+        error.name = 'TimeoutError';
+        throw error;
+      },
+      async setBypassCSP() {},
+      async evaluate() {
+        calls.push('evaluate');
+        return { title: 'Loaded', content: 'article body', url: 'https://example.com/story' };
+      },
+    };
+
+    const article = await loadReadablePage(page, 'https://example.com/story', 1000);
+    expect(article.content).toBe('article body');
+    expect(calls[0]).toBe('domcontentloaded');
+    expect(calls).toContain('idle');
+    expect(calls).toContain('evaluate');
+  });
+
+  test('a document that never loads is not extracted', async () => {
+    const calls: string[] = [];
+    const page = {
+      async goto() {
+        calls.push('goto');
+        const error = new Error('Navigation timeout of 1000 ms exceeded');
+        error.name = 'TimeoutError';
+        throw error;
+      },
+      async waitForNetworkIdle() {
+        calls.push('idle');
+      },
+      async evaluate() {
+        calls.push('evaluate');
+        return { title: 'Stale', content: 'already open', url: 'https://already-open.example' };
+      },
+    };
+
+    await expect(loadReadablePage(page, 'https://example.com/slow', 1000)).rejects.toThrow(/timeout/i);
+    expect(calls).toEqual(['goto']);
+  });
+
+  test('search content keeps a loaded result when network idle times out', async () => {
+    const page = {
+      async goto() {},
+      async waitForNetworkIdle() {
+        const error = new Error('Waiting for network idle timed out');
+        error.name = 'TimeoutError';
+        throw error;
+      },
+      async setBypassCSP() {},
+      async evaluate() {
+        return { title: 'Loaded', content: 'result article', url: 'https://example.com/result' };
+      },
+    };
+
+    await expect(fetchResultContent(page, 'https://example.com/result', 1000)).resolves.toBe('result article');
+  });
+
   test('a loaded results page is still read when the result selector is missing', async () => {
     const page = {
       async goto() {},

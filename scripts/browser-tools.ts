@@ -1035,9 +1035,25 @@ export async function collectSearchResults(
   return results;
 }
 
+function isTimeoutError(error: unknown): boolean {
+  if (error instanceof Error && error.name === 'TimeoutError') return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /timeout/i.test(message);
+}
+
+async function waitForQuietNetwork(page: any, timeoutMs: number): Promise<void> {
+  if (typeof page.waitForNetworkIdle !== 'function') return;
+  try {
+    await page.waitForNetworkIdle({ idleTime: 500, concurrency: 2, timeout: timeoutMs });
+  } catch (error) {
+    if (!isTimeoutError(error)) throw error;
+  }
+}
+
 export async function fetchResultContent(page: any, url: string, timeoutMs: number): Promise<string> {
   try {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: timeoutMs });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+    await waitForQuietNetwork(page, timeoutMs);
     const article = await extractReadableContent(page);
     return article.content ?? '(No readable content)';
   } catch (error) {
@@ -1051,7 +1067,8 @@ export async function loadReadablePage(
   url: string,
   timeoutMs: number,
 ): Promise<{ title?: string; content?: string; url: string }> {
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: timeoutMs });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+  await waitForQuietNetwork(page, timeoutMs);
   return extractReadableContent(page);
 }
 
