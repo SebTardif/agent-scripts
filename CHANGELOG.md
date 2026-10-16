@@ -6,6 +6,8 @@ summary: Timeline of guardrail helper changes mirrored from Sweetistics and rela
 
 ## Unreleased
 
+- `publish-package.sh` checks existing and newly published versions with its authenticated npmrc, so a restricted package is visible after publish and on retry.
+
 - Route personal Gateway checks through the verified native installation and update owner; preserve legacy service custody until supported takeover is complete.
 
 - Global `fix ci` rule: rerun only the failed tests/checks locally and push fixes once; `gh run rerun --failed` only for diagnosed infra/flaky failures, never to chase green.

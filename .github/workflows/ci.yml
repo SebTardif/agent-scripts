@@ -54,6 +54,7 @@ jobs:
           trap 'rm -rf "$test_home"' EXIT
           timeout 60s env -i HOME="$test_home" PATH="$PATH" node --test skills/npm/scripts/*.test.mjs </dev/null
           timeout 30s env -i HOME="$test_home" PATH="$PATH" /bin/bash skills/npm/scripts/npm-auth.test.sh </dev/null
+          timeout 30s env -i HOME="$test_home" PATH="$PATH" /bin/bash skills/npm/scripts/publish-package.test.sh </dev/null
 
       - name: Test Codex context and private-home auth preflight (offline, synthetic)
         run: |
