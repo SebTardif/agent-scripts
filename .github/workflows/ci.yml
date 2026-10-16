@@ -73,6 +73,9 @@ jobs:
       - name: Test maintainer orchestrator worker boundary
         run: scripts/test-maintainer-orchestrator-policy
 
+      - name: Test fleet admin membership classification
+        run: node --test skills/fleet-maintenance/scripts/fleet-profile.test.mjs
+
       - name: Test image output safety (offline, synthetic)
         run: |
           python3 -m venv "$RUNNER_TEMP/image-tests"

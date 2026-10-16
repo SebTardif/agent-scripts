@@ -4,6 +4,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 function fail(message) {
   process.stderr.write(`fleet-profile: ${message}\n`);
@@ -25,6 +26,13 @@ function run(command, args = [], options = {}) {
 
 function lines(value) {
   return value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
+}
+
+export function adminMembership(stdout, stderr) {
+  const text = `${stdout || ""}\n${stderr || ""}`;
+  if (/\byes\b/i.test(text)) return true;
+  if (/\bno\b/i.test(text)) return false;
+  return null;
 }
 
 function uniqueSorted(values) {
@@ -123,7 +131,11 @@ function collectAccounts() {
     const match = row.match(/^(.*?)\s+(\d+)$/);
     if (!match || Number(match[2]) < 500) continue;
     const username = match[1];
-    const adminCheck = run("/usr/sbin/dseditgroup", ["-o", "checkmember", "-m", username, "admin"]);
+    const adminResult = spawnSync("/usr/sbin/dseditgroup", ["-o", "checkmember", "-m", username, "admin"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const admin = adminMembership(adminResult.stdout, adminResult.stderr);
     const tokenResult = spawnSync("/usr/sbin/sysadminctl", ["-secureTokenStatus", username], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -132,7 +144,7 @@ function collectAccounts() {
     accounts.push({
       username,
       uid: Number(match[2]),
-      admin: /yes/i.test(adminCheck),
+      admin,
       filevault_unlock: fileVaultListReadable ? fileVaultUsers.has(username) : null,
       secure_token: /enabled/i.test(tokenCheck) ? "enabled" : /disabled/i.test(tokenCheck) ? "disabled" : "unknown",
     });
@@ -458,8 +470,21 @@ function validateInventory(inventory) {
   return { valid: errors.length === 0, errors, warnings };
 }
 
-const command = process.argv[2];
-if (command === "collect") {
+function sameInvokedFile(argvPath) {
+  if (!argvPath) return false;
+  const modulePath = fileURLToPath(import.meta.url);
+  try {
+    return fs.realpathSync(argvPath) === fs.realpathSync(modulePath);
+  } catch {
+    return path.resolve(argvPath) === path.resolve(modulePath);
+  }
+}
+
+const invokedDirectly = sameInvokedFile(process.argv[1]);
+const command = invokedDirectly ? process.argv[2] : "";
+if (!invokedDirectly) {
+  // Imported for adminMembership. Command handling runs only for the script.
+} else if (command === "collect") {
   process.stdout.write(`${JSON.stringify(collect(), null, 2)}\n`);
 } else if (command === "diff") {
   const sourceFile = option("--source");
